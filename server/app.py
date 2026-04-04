@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+import uvicorn
 
 from env import CyberEnv
 from models import CyberAction
@@ -18,9 +19,10 @@ class StepRequest(BaseModel):
 
 
 @app.post("/reset")
-def reset(request: ResetRequest) -> dict:
+def reset(request: ResetRequest | None = None) -> dict:
 	try:
-		env.task = request.task if request.task else "easy"
+		task_name = request.task if request and request.task else "easy"
+		env.task = task_name
 		observation = env.reset()
 		return {
 			"observation": observation.model_dump(),
@@ -60,3 +62,11 @@ def step(request: StepRequest) -> dict:
 			"done": True,
 			"info": {"error": str(exc)},
 		}
+
+
+def main() -> None:
+	uvicorn.run("server.app:app", host="0.0.0.0", port=7860)
+
+
+if __name__ == "__main__":
+	main()

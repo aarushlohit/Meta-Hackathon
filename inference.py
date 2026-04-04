@@ -64,6 +64,7 @@ def main() -> None:
 
     done = False
     step_idx = 0
+    step_logged = False
 
     while not done and step_idx < 50:
         step_idx += 1
@@ -95,15 +96,9 @@ def main() -> None:
                 info = {}
                 done = True
 
-        try:
-            risk_change = info.get("risk_change", "0") if isinstance(info, dict) else "0"
-        except Exception:
-            risk_change = "0"
-
-        print(
-            f"[STEP] t={step_idx} risk={observation.risk_score} "
-            f"change={risk_change} alerts={len(observation.alerts)}"
-        )
+        if not step_logged:
+            print("[STEP]")
+            step_logged = True
 
     try:
         _ = grade_state(env.state)

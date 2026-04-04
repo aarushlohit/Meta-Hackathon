@@ -1,6 +1,9 @@
 from typing import List
 
-from openenv import Action, Observation, State
+try:
+    from openenv import Action, Observation, State
+except ImportError:
+    from openenv.core import Action, Observation, State
 
 
 class CyberAction(Action):

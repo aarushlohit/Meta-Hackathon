@@ -1,3 +1,8 @@
+---
+sdk: docker
+app_port: 7860
+---
+
 # Adaptive Cyber Crisis Environment
 
 A deterministic OpenEnv-compatible cybersecurity environment where an agent handles alerts under escalating risk.

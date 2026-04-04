@@ -1,7 +1,10 @@
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-from openenv import Environment
+try:
+    from openenv import Environment
+except ImportError:
+    from openenv.core import Environment
 
 from models import CyberAction, CyberObservation, CyberState
 from parser import parse_message_to_action
