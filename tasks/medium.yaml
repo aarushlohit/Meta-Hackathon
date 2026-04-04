@@ -1,0 +1,7 @@
+id: medium
+description: Resolve baseline alerts with medium timeline pressure.
+max_steps: 12
+initial_alerts:
+  - phishing_email
+  - failed_login
+initial_risk_score: 20

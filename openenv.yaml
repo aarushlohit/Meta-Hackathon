@@ -1,0 +1,20 @@
+name: adaptive-cyber-crisis-environment
+description: Deterministic OpenEnv environment for cyber alert triage with adaptive escalation.
+environment:
+  module: env
+  class: CyberEnv
+server:
+  app: server.app:app
+tasks:
+  - id: easy
+    description: Baseline two-alert incident response.
+    config:
+      task: easy
+  - id: medium
+    description: Extended timeline incident with more escalation exposure.
+    config:
+      task: medium
+  - id: hard
+    description: Longest timeline and highest escalation pressure.
+    config:
+      task: hard

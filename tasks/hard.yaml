@@ -1,0 +1,7 @@
+id: hard
+description: Resolve baseline alerts with hard timeline pressure and escalation risk.
+max_steps: 14
+initial_alerts:
+  - phishing_email
+  - failed_login
+initial_risk_score: 20

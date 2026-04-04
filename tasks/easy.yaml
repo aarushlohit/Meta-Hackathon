@@ -1,0 +1,7 @@
+id: easy
+description: Resolve baseline phishing and failed login alerts within 10 steps.
+max_steps: 10
+initial_alerts:
+  - phishing_email
+  - failed_login
+initial_risk_score: 20
