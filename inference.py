@@ -6,53 +6,88 @@ from openai import OpenAI
 from env import CyberEnv
 from grader import grade_state
 from models import CyberAction, CyberObservation
+from parser import parse_message_to_action
 
 
-def _build_prompt(observation: CyberObservation) -> str:
-    return (
-        "You are a cybersecurity analyst. Return exactly one command using one of: "
-        "investigate <alert>, block <target>, resolve <alert>. "
-        f"alerts={observation.alerts}, risk_score={observation.risk_score}, "
-        f"time_left={observation.time_left}, history_tail={observation.history[-3:]}"
-    )
+API_BASE_URL = os.getenv("API_BASE_URL", "https://gen.pollinations.ai")
+MODEL_NAME = os.getenv("MODEL_NAME", "gemini-fast")
+HF_TOKEN = os.getenv("HF_TOKEN", "dummy")
+
+client = OpenAI(
+    base_url=API_BASE_URL,
+    api_key=HF_TOKEN,
+)
 
 
-def _fallback_action(observation: CyberObservation) -> str:
-    if observation.alerts:
-        return f"investigate {observation.alerts[0]}"
-    return "resolve phishing_email"
+def _coerce_valid_action(message: str, last_obs: CyberObservation, step: int) -> str:
+    parsed = parse_message_to_action(message)
+    if parsed.is_valid:
+        return f"{parsed.verb} {parsed.target}"
+    return fallback_logic(step, last_obs)
 
 
-def _ask_model(client: OpenAI, model_name: str, observation: CyberObservation) -> str:
-    prompt = _build_prompt(observation)
-    completion = client.chat.completions.create(
-        model=model_name,
-        messages=[
-            {"role": "system", "content": "Return one valid command only."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0,
-    )
+def fallback_logic(step: int, last_obs: CyberObservation) -> str:
+    text = str(last_obs).lower()
 
-    content: Optional[str] = None
-    if completion.choices:
-        message = completion.choices[0].message
-        content = message.content if message else None
+    if "phishing" in text:
+        return "investigate phishing_email"
+    if "malware" in text:
+        return "block 192.168.1.1"
+    if "login" in text:
+        return "resolve failed_login"
 
-    if not content:
-        return _fallback_action(observation)
+    if getattr(last_obs, "alerts", None):
+        return f"investigate {last_obs.alerts[0]}"
 
-    first_line = content.strip().splitlines()[0].strip()
-    return first_line if first_line else _fallback_action(observation)
+    if step % 2 == 0:
+        return "resolve phishing_email"
+    return "investigate failed_login"
+
+
+def get_model_message(
+    step: int,
+    last_obs: CyberObservation,
+    last_reward: float,
+    history: list[str],
+) -> str:
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a cybersecurity SOC analyst. Respond with a single valid action.",
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Observation: {last_obs}\n"
+                        f"Reward: {last_reward}\n"
+                        f"History: {history[-3:]}"
+                    ),
+                },
+            ],
+            temperature=0.2,
+        )
+
+        content: Optional[str] = None
+        if response.choices:
+            msg = response.choices[0].message
+            content = msg.content if msg else None
+
+        if not content:
+            return fallback_logic(step, last_obs)
+
+        line = content.strip().splitlines()[0].strip()
+        if not line:
+            return fallback_logic(step, last_obs)
+
+        return _coerce_valid_action(line, last_obs, step)
+    except Exception:
+        return fallback_logic(step, last_obs)
 
 
 def main() -> None:
-    api_base_url = os.getenv("API_BASE_URL", "https://api-inference.huggingface.co/v1")
-    model_name = os.getenv("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
-    hf_token = os.getenv("HF_TOKEN", "")
-
-    client = OpenAI(base_url=api_base_url, api_key=hf_token if hf_token else "hf_dummy")
-
     env = CyberEnv()
 
     print("[START]")
@@ -65,14 +100,19 @@ def main() -> None:
     done = False
     step_idx = 0
     step_logged = False
+    reward = 0.0
+    decision_history: list[str] = []
 
     while not done and step_idx < 50:
         step_idx += 1
 
         try:
-            message = _ask_model(client, model_name, observation)
+            message = get_model_message(step_idx, observation, reward, decision_history)
         except Exception:
-            message = _fallback_action(observation)
+            message = fallback_logic(step_idx, observation)
+
+        message = _coerce_valid_action(message, observation, step_idx)
+        decision_history.append(message)
 
         action = CyberAction(message=message)
 
@@ -85,7 +125,7 @@ def main() -> None:
                 observation, reward, done = step_result  # backward compatibility
         except Exception:
             try:
-                fallback = CyberAction(message=_fallback_action(observation))
+                fallback = CyberAction(message=fallback_logic(step_idx, observation))
                 step_result = env.step(fallback)
                 if isinstance(step_result, tuple) and len(step_result) == 4:
                     observation, reward, done, info = step_result
