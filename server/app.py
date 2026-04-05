@@ -10,6 +10,24 @@ env = CyberEnv()
 app = FastAPI(title="Adaptive Cyber Crisis Environment")
 
 
+@app.get("/")
+def root() -> dict:
+	return {
+		"status": "running",
+		"service": "Meta Hackathon OpenEnv API",
+		"version": "1.0",
+		"endpoints": ["/reset", "/step"],
+	}
+
+
+@app.get("/health")
+def health() -> dict:
+	return {
+		"ok": True,
+		"uptime": "alive",
+	}
+
+
 class ResetRequest(BaseModel):
 	task: str = "easy"
 
