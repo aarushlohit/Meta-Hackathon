@@ -24,7 +24,6 @@ def root() -> dict:
 def health() -> dict:
 	return {
 		"ok": True,
-		"uptime": "alive",
 	}
 
 

@@ -11,7 +11,7 @@ from parser import parse_message_to_action
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://gen.pollinations.ai")
 MODEL_NAME = os.getenv("MODEL_NAME", "gemini-fast")
-HF_TOKEN = os.getenv("HF_TOKEN", "dummy")
+HF_TOKEN = os.getenv("HF_TOKEN", "dummy") or "dummy"
 
 client = OpenAI(
     base_url=API_BASE_URL,
