@@ -278,3 +278,10 @@ python inference.py
    - Verify `API_BASE_URL`, `MODEL_NAME`, and token validity.
 - Unexpected invalid actions:
    - Ensure actions strictly follow `verb + target`, for example `investigate phishing_email`.
+
+## Author
+
+Built by **Aarush Lohit**.
+First-year student at **Karunya University, Coimbatore**.
+- Email: lohita@karunya.edu.in
+- GitHub: [@aarushlohit](https://github.com/aarushlohit)
