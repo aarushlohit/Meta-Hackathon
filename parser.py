@@ -8,6 +8,33 @@ class ParsedAction:
     is_valid: bool
 
 
+def parse_action(action_input):
+    try:
+        # Already structured -> return
+        if isinstance(action_input, dict):
+            return action_input
+
+        # STRING FORMAT SUPPORT
+        if isinstance(action_input, str):
+            parts = action_input.strip().split()
+
+            if len(parts) >= 2:
+                action_type = parts[0]
+                target = parts[1]
+
+                return {
+                    "action_type": action_type,
+                    "target_alert_id": target,
+                    "rationale_tag": "auto_parsed",
+                }
+
+        # fallback invalid
+        return {"action_type": "noop", "rationale_tag": "invalid"}
+
+    except Exception:
+        return {"action_type": "noop", "rationale_tag": "exception"}
+
+
 def parse_message_to_action(message: str) -> ParsedAction:
     try:
         if not isinstance(message, str):

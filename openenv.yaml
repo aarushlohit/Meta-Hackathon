@@ -7,21 +7,18 @@ server:
   app: server.app:app
 tasks:
   - id: easy
-    description: Baseline two-alert incident response
     config:
       task: easy
     grader:
       module: grader
       function: grade_easy
   - id: medium
-    description: Extended timeline incident
     config:
       task: medium
     grader:
       module: grader
       function: grade_medium
   - id: hard
-    description: Highest escalation pressure
     config:
       task: hard
     grader:

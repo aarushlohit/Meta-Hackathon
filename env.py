@@ -7,7 +7,8 @@ except ImportError:
     from openenv.core import Environment
 
 from models import CyberAction, CyberObservation, CyberState
-from parser import parse_message_to_action
+from parser import parse_action
+from grader import safe_score
 
 
 class CyberEnv(Environment):
@@ -94,23 +95,25 @@ class CyberEnv(Environment):
             self._elapsed_steps += 1
             self._risk_before_step = self.risk_score
             message = getattr(action, "message", "")
-            parsed = parse_message_to_action(message)
+            parsed = parse_action(message)
             self.history.append(f"action:{message}")
 
-            if parsed.is_valid:
-                if parsed.verb == "investigate":
-                    self._handle_investigate(parsed.target)
-                elif parsed.verb == "block":
-                    self._handle_block(parsed.target)
-                elif parsed.verb == "resolve":
-                    self._handle_resolve(parsed.target)
-                else:
-                    self.history.append("invalid_action")
-                    self._decision_trace.append("Unsupported action verb routed to invalid action handling.")
-                    self._increase_risk_and_escalate(10)
+            action_type = str(parsed.get("action_type", "noop")).lower()
+            target = str(parsed.get("target_alert_id", ""))
+
+            if action_type == "noop":
+                self.history.append("invalid_action")
+                self._decision_trace.append("No-op action parsed; applied safe risk increment.")
+                self._increase_risk_and_escalate(5)
+            elif action_type in {"investigate", "triage_alert"}:
+                self._handle_investigate(target)
+            elif action_type in {"block", "block_ip"}:
+                self._handle_block(target)
+            elif action_type == "resolve":
+                self._handle_resolve(target)
             else:
                 self.history.append("invalid_action")
-                self._decision_trace.append("Invalid action format increased operational risk.")
+                self._decision_trace.append("Unsupported action verb routed to invalid action handling.")
                 self._increase_risk_and_escalate(10)
 
             self._maybe_add_noise_alert()
@@ -121,7 +124,7 @@ class CyberEnv(Environment):
 
             done = self.risk_score >= 90 or self.time_left == 0 or len(self.alerts) == 0
             reward = self._compute_reward(done)
-            reward = max(0.0, min(1.0, reward))
+            reward = safe_score(reward)
             info = self._build_info(done)
             return self._observation(), reward, done, info
         except Exception as exc:
@@ -132,7 +135,7 @@ class CyberEnv(Environment):
             self.risk_score = max(0, min(100, self.risk_score))
             self._risk_after_step = self.risk_score
             done = self.risk_score >= 90 or self.time_left == 0 or len(self.alerts) == 0
-            reward = max(0.0, min(1.0, self._compute_reward(done)))
+            reward = safe_score(self._compute_reward(done))
             self.history.append(f"step_error:{type(exc).__name__}")
             info = self._build_info(done)
             info["error"] = type(exc).__name__
@@ -273,7 +276,7 @@ class CyberEnv(Environment):
         if done and len(self.alerts) == 0:
             reward = max(reward, 0.95)
 
-        return max(0.0, min(1.0, reward))
+        return safe_score(reward)
 
     def _build_info(self, done: bool) -> Dict[str, str]:
         risk_delta = self._risk_after_step - self._risk_before_step

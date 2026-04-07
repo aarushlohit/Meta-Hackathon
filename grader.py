@@ -3,6 +3,19 @@ from typing import Any
 from models import CyberState
 
 
+def safe_score(x):
+    try:
+        x = float(x)
+    except Exception:
+        return 0.05
+
+    if x <= 0:
+        return 0.05
+    if x >= 1:
+        return 0.99
+    return max(0.01, min(0.99, x))
+
+
 def clamp_score(x: float) -> float:
     if x <= 0:
         return 0.05
@@ -53,32 +66,43 @@ def compute_score(state) -> float:
     # Use existing logic (risk reduction, etc.) when a CyberState object is provided.
     if isinstance(state, CyberState):
         score = _compute_cyber_state_score(state)
-        return clamp_score(float(score))
-
-    if isinstance(state, dict):
+    elif isinstance(state, dict):
         score = state.get("score", 0.5)
-        try:
-            return clamp_score(float(score))
-        except (TypeError, ValueError):
-            score = 0.05
-            return clamp_score(float(score))
+    else:
+        score = 0.05
 
-    score = 0.05
-    return clamp_score(float(score))
+    try:
+        score = float(score)
+    except (TypeError, ValueError):
+        return 0.05
+
+    if score is None:
+        return 0.05
+
+    if score <= 0:
+        return 0.05
+
+    if score >= 1:
+        return 0.99
+
+    return safe_score(score)
 
 
 def grade_easy(state):
-    return float(clamp_score(compute_score(state)))
+    score = compute_score(state)
+    return safe_score(score)
 
 
 def grade_medium(state):
-    return float(clamp_score(compute_score(state)))
+    score = compute_score(state)
+    return safe_score(score)
 
 
 def grade_hard(state):
-    return float(clamp_score(compute_score(state)))
+    score = compute_score(state)
+    return safe_score(score)
 
 
 def grade_state(state: Any) -> float:
     # Backward-compatible entrypoint used by inference code.
-    return float(clamp_score(compute_score(state)))
+    return float(safe_score(compute_score(state)))
