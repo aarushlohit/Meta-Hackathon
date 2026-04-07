@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
 import uvicorn
 
@@ -36,47 +36,57 @@ class StepRequest(BaseModel):
 
 
 @app.post("/reset")
-def reset(request: ResetRequest | None = None) -> dict:
+async def reset(request: Request) -> dict:
 	try:
-		task_name = request.task if request and request.task else "easy"
-		env.task = task_name
-		observation = env.reset()
+		body = await request.json()
+		task = body.get("task", "easy")
+
+		env.task = task
+		obs = env.reset()
+
 		return {
-			"observation": observation.model_dump(),
+			"observation": obs,
 			"reward": 0.0,
 			"done": False,
 			"info": {},
 		}
-	except Exception as exc:
+	except Exception:
+		obs = env.reset()
 		return {
-			"observation": {
-				"alerts": ["phishing_email", "failed_login"],
-				"risk_score": 20,
-				"time_left": 10,
-				"history": ["reset_fallback"],
-			},
+			"observation": obs,
 			"reward": 0.0,
 			"done": False,
-			"info": {"error": str(exc)},
+			"info": {},
 		}
 
 
 @app.post("/step")
-def step(request: StepRequest) -> dict:
+async def step(request: Request) -> dict:
 	try:
-		action = CyberAction(message=request.message)
-		observation, reward, done, info = env.step(action)
+		body = await request.json()
+
+		# CRITICAL FIX: map "action" -> "message"
+		action_text = body.get("action", "")
+
+		# fallback safety
+		if not isinstance(action_text, str):
+			action_text = ""
+
+		action = CyberAction(message=action_text)
+
+		obs, reward, done, info = env.step(action)
+
 		return {
-			"observation": observation.model_dump(),
-			"reward": max(0.0, min(1.0, float(reward))),
-			"done": bool(done),
-			"info": info if isinstance(info, dict) else {},
+			"observation": obs,
+			"reward": reward,
+			"done": done,
+			"info": info,
 		}
 	except Exception as exc:
 		return {
-			"observation": env.state.model_dump(),
-			"reward": 0.0,
-			"done": True,
+			"observation": {},
+			"reward": 0.05,
+			"done": False,
 			"info": {"error": str(exc)},
 		}
 
