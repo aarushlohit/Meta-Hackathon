@@ -1,25 +1,17 @@
-from typing import Dict, Iterable, Tuple
+from typing import Any
 
 from models import CyberState
 
 
-TASK_IDS: Tuple[str, str, str] = ("easy", "medium", "hard")
-
-
 def clamp_score(x: float) -> float:
+    if x <= 0:
+        return 0.05
+    if x >= 1:
+        return 0.99
     return max(0.01, min(0.99, x))
 
 
-def _normalize_score(raw_score: float) -> float:
-    score = raw_score
-    if score == 0.0:
-        score = 0.05
-    if score == 1.0:
-        score = 0.99
-    return clamp_score(score)
-
-
-def grade_state(state: CyberState) -> float:
+def _compute_cyber_state_score(state: CyberState) -> float:
     resolved_count = 0
     generated_count = 0
     first_priority_event_index = -1
@@ -35,57 +27,58 @@ def grade_state(state: CyberState) -> float:
             first_priority_event_index = idx
 
     total_alerts = max(1, 2 + generated_count)
-    resolved_alerts_ratio = _normalize_score(resolved_count / float(total_alerts))
+    resolved_alerts_ratio = clamp_score(resolved_count / float(total_alerts))
 
     current_risk = max(0, min(100, state.risk_score))
     # Baseline initial risk is 20 in the environment design.
-    risk_reduction_score = _normalize_score((20.0 - current_risk + 80.0) / 80.0)
+    risk_reduction_score = clamp_score((20.0 - current_risk + 80.0) / 80.0)
 
     if first_priority_event_index < 0:
         prioritization_score = 0.05
     else:
-        prioritization_score = _normalize_score(1.0 - (first_priority_event_index / 20.0))
+        prioritization_score = clamp_score(1.0 - (first_priority_event_index / 20.0))
 
-    time_efficiency = _normalize_score(state.time_left / 14.0)
+    time_efficiency = clamp_score(state.time_left / 14.0)
 
-    task_score = (
+    score = (
         (risk_reduction_score * 0.40)
         + (prioritization_score * 0.25)
         + (time_efficiency * 0.20)
         + (resolved_alerts_ratio * 0.15)
     )
-    task_score = _normalize_score(task_score)
-    return task_score
+    return clamp_score(score)
 
 
-def grade_tasks(states_by_task: Dict[str, CyberState]) -> Dict[str, float]:
-    task_scores: Dict[str, float] = {}
+def compute_score(state) -> float:
+    # Use existing logic (risk reduction, etc.) when a CyberState object is provided.
+    if isinstance(state, CyberState):
+        score = _compute_cyber_state_score(state)
+        return clamp_score(float(score))
 
-    for task in TASK_IDS:
-        state = states_by_task.get(task)
-        if state is None:
-            task_score = 0.05
-        else:
-            task_score = grade_state(state)
-        task_scores[task] = _normalize_score(task_score)
+    if isinstance(state, dict):
+        score = state.get("score", 0.5)
+        try:
+            return clamp_score(float(score))
+        except (TypeError, ValueError):
+            score = 0.05
+            return clamp_score(float(score))
 
-    return task_scores
-
-
-def aggregate_final_score(task_scores: Iterable[float]) -> float:
-    scores = [_normalize_score(score) for score in task_scores]
-
-    while len(scores) < 3:
-        scores.append(0.05)
-
-    final_score = sum(scores) / len(scores)
-    final_score = _normalize_score(final_score)
-    return final_score
+    score = 0.05
+    return clamp_score(float(score))
 
 
-def validate_task_scores(task_scores: Dict[str, float]) -> None:
-    if len(task_scores) < 3:
-        raise ValueError("Not enough tasks with graders")
+def grade_easy(state):
+    return float(clamp_score(compute_score(state)))
 
-    if any(not (0.0 < score < 1.0) for score in task_scores.values()):
-        raise ValueError("Task scores must be strictly between (0, 1)")
+
+def grade_medium(state):
+    return float(clamp_score(compute_score(state)))
+
+
+def grade_hard(state):
+    return float(clamp_score(compute_score(state)))
+
+
+def grade_state(state: Any) -> float:
+    # Backward-compatible entrypoint used by inference code.
+    return float(clamp_score(compute_score(state)))
