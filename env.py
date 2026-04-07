@@ -94,7 +94,12 @@ class CyberEnv(Environment):
         try:
             self._elapsed_steps += 1
             self._risk_before_step = self.risk_score
-            message = getattr(action, "message", "")
+            if hasattr(action, "message"):
+                message = action.message
+            elif isinstance(action, dict):
+                message = action.get("action", "")
+            else:
+                message = str(action)
 
             # FIX: handle string actions BEFORE parser
             if isinstance(message, str):
