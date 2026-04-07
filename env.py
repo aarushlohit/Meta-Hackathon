@@ -95,7 +95,21 @@ class CyberEnv(Environment):
             self._elapsed_steps += 1
             self._risk_before_step = self.risk_score
             message = getattr(action, "message", "")
-            parsed = parse_action(message)
+
+            # FIX: handle string actions BEFORE parser
+            if isinstance(message, str):
+                parts = message.strip().split()
+
+                if len(parts) >= 2:
+                    parsed = {
+                        "action_type": parts[0].lower(),
+                        "target_alert_id": parts[1],
+                        "rationale_tag": "auto_fixed",
+                    }
+                else:
+                    parsed = parse_action(message)
+            else:
+                parsed = parse_action(message)
             self.history.append(f"action:{message}")
 
             action_type = str(parsed.get("action_type", "noop")).lower()
