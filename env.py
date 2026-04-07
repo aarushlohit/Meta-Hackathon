@@ -24,6 +24,7 @@ class CyberEnv(Environment):
             "suspicious_attachment",
             "brute_force_attempt",
             "privilege_escalation",
+            "lateral_movement",
             "data_exfiltration",
             "service_disruption",
         ]
@@ -73,7 +74,15 @@ class CyberEnv(Environment):
     def reset(self) -> CyberObservation:
         self._task_config = self._load_task_config(self.task)
         self._max_time = int(self._task_config.get("max_steps", self._max_time_by_task.get(self.task, 10)))
-        self.alerts = ["phishing_email", "failed_login"]
+        # Deterministic multi-scenario initialization
+        if self.task == "easy":
+            self.alerts = ["phishing_email", "failed_login"]
+        elif self.task == "medium":
+            self.alerts = ["failed_login", "misconfiguration"]
+        elif self.task == "hard":
+            self.alerts = ["lateral_movement", "data_exfiltration"]
+        else:
+            self.alerts = ["phishing_email", "failed_login"]
         self.risk_score = int(self._task_config.get("initial_risk_score", 20))
         self._initial_risk_score = self.risk_score
         self.time_left = self._max_time
@@ -83,7 +92,9 @@ class CyberEnv(Environment):
         self._elapsed_steps = 0
         self._correct_actions = 0
         self._delay_penalty_total = 0.0
-        self._decision_trace = ["Reset completed with deterministic baseline alerts."]
+        self._decision_trace = [
+            f"Scenario initialized for task={self.task} with alerts={self.alerts}"
+        ]
         self._noise_alert_spawned = False
         self._investigated_alerts = set()
         self._risk_before_step = self.risk_score
